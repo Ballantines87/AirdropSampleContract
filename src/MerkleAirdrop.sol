@@ -34,6 +34,7 @@ contract MerkleAirdrop {
     //////////////////////////////////////////////////////////////*/
 
     error MerkleAirdrop_InvalidProof();
+    error MerkleAirdrop_AccountHasAlreadyClaimed();
 
     /*//////////////////////////////////////////////////////////////
                            TYPE DECLARATIONS
@@ -44,9 +45,9 @@ contract MerkleAirdrop {
     /*//////////////////////////////////////////////////////////////
                            STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
-    address[] claimers;
     bytes32 private immutable i_merkleRoot;
     IERC20 private immutable i_airdropToken;
+    mapping(address claimer => bool claimed) s_addressesWhichHaveClaimed;
 
     /*//////////////////////////////////////////////////////////////
                            EVENTS
@@ -76,10 +77,22 @@ contract MerkleAirdrop {
             - Final keccak256(...): Re-hashes the concatenated byte -> the output is again a bytes32 hash.
         */
         bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(account, amount))));
+        if (s_addressesWhichHaveClaimed[account]) {
+            revert MerkleAirdrop_AccountHasAlreadyClaimed();
+        }
         if (!MerkleProof.verify(merkleProof, i_merkleRoot, leaf)) {
             revert MerkleAirdrop_InvalidProof();
         }
+        s_addressesWhichHaveClaimed[account] = true;
         emit TokensMinted(account, amount);
         i_airdropToken.safeTransfer(account, amount);
+    }
+
+    function getMerkleRoot() public view returns (bytes32) {
+        return i_merkleRoot;
+    }
+
+    function getAirdropToken() public view returns (IERC20) {
+        return i_airdropToken;
     }
 }
